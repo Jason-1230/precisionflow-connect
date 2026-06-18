@@ -1,0 +1,13 @@
+{
+  "job_name": "six-rank-heterogeneous-demo",
+  "world_size": 6,
+  "ranks": [
+    {"rank": 0, "machine": "edge-a", "device": "cuda:0", "precision": "fp32"},
+    {"rank": 1, "machine": "edge-a", "device": "cuda:1", "precision": "bf16"},
+    {"rank": 2, "machine": "edge-a", "device": "cuda:2", "precision": "fp16"},
+    {"rank": 3, "machine": "edge-b", "device": "cuda:0", "precision": "fp32"},
+    {"rank": 4, "machine": "edge-b", "device": "cuda:1", "precision": "bf16"},
+    {"rank": 5, "machine": "edge-b", "device": "cuda:2", "precision": "fp16"}
+  ]
+}
+

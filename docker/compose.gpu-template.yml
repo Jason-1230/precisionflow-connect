@@ -1,0 +1,66 @@
+services:
+  pfc-node0:
+    image: precisionflow-connect:gpu
+    hostname: pfc-node0
+    gpus: all
+    network_mode: host
+    ipc: host
+    working_dir: /workspace
+    volumes:
+      - ../:/workspace
+    environment:
+      NCCL_SOCKET_IFNAME: ib0
+      GLOO_SOCKET_IFNAME: ib0
+      NCCL_DEBUG: INFO
+      CUDA_VISIBLE_DEVICES: 0,1,2,3
+    command:
+      - torchrun
+      - --nnodes=2
+      - --nproc_per_node=4
+      - --node_rank=0
+      - --master_addr=192.0.2.10
+      - --master_port=29500
+      - -m
+      - precisionflow_lab
+      - connect
+      - --live
+      - --backend
+      - auto
+      - --manifest
+      - configs/multinode_2x4.json
+      - --anonymize-hostnames
+      - --json-output
+      - reports/gpu-connect.json
+      - --markdown-output
+      - reports/gpu-connect.md
+
+  pfc-node1:
+    image: precisionflow-connect:gpu
+    hostname: pfc-node1
+    gpus: all
+    network_mode: host
+    ipc: host
+    working_dir: /workspace
+    volumes:
+      - ../:/workspace
+    environment:
+      NCCL_SOCKET_IFNAME: ib0
+      GLOO_SOCKET_IFNAME: ib0
+      NCCL_DEBUG: INFO
+      CUDA_VISIBLE_DEVICES: 0,1,2,3
+    command:
+      - torchrun
+      - --nnodes=2
+      - --nproc_per_node=4
+      - --node_rank=1
+      - --master_addr=192.0.2.10
+      - --master_port=29500
+      - -m
+      - precisionflow_lab
+      - connect
+      - --live
+      - --backend
+      - auto
+      - --manifest
+      - configs/multinode_2x4.json
+      - --anonymize-hostnames

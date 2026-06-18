@@ -1,0 +1,8 @@
+{
+  "job_name": "precisionflow-connect-docker-gloo-demo",
+  "world_size": 2,
+  "ranks": [
+    {"rank": 0, "machine": "pfc-node0", "device": "cpu", "precision": "fp32"},
+    {"rank": 1, "machine": "pfc-node1", "device": "cpu", "precision": "fp32"}
+  ]
+}

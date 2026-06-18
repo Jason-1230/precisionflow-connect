@@ -1,0 +1,72 @@
+{
+  "tool": "PrecisionFlow Connect",
+  "mode": "live",
+  "created_at_utc": "2026-06-17T08:10:00+00:00",
+  "overall_status": "FAIL",
+  "rank_runtime": {
+    "master_addr": "192.0.2.10",
+    "master_port": 29500,
+    "rank": 0,
+    "local_rank": 0,
+    "world_size": 4,
+    "local_world_size": 4,
+    "node_rank": 0
+  },
+  "cluster_topology": {
+    "status": "PASS",
+    "manifest": "configs/multinode_2x4.json",
+    "job_name": "precisionflow-connect-2x4-demo",
+    "world_size": 8,
+    "rank_mapping": []
+  },
+  "environment": [
+    {"name": "MASTER_ADDR", "required": true, "present": true, "status": "PASS", "value": "192.0.2.10", "detail": null},
+    {"name": "MASTER_PORT", "required": true, "present": true, "status": "PASS", "value": "29500", "detail": null},
+    {"name": "RANK", "required": true, "present": true, "status": "PASS", "value": "0", "detail": null},
+    {"name": "LOCAL_RANK", "required": true, "present": true, "status": "PASS", "value": "0", "detail": null},
+    {"name": "WORLD_SIZE", "required": true, "present": true, "status": "PASS", "value": "4", "detail": null},
+    {"name": "NCCL_SOCKET_IFNAME", "required": false, "present": false, "status": "WARN", "value": null, "detail": null},
+    {"name": "GLOO_SOCKET_IFNAME", "required": false, "present": false, "status": "WARN", "value": null, "detail": null}
+  ],
+  "network": {
+    "hostname": "host-local",
+    "host_addresses": ["redacted"],
+    "interfaces": [{"index": 1, "name": "eth0"}, {"index": 2, "name": "ib0"}],
+    "selected_interfaces": {"nccl_socket_ifname": null, "gloo_socket_ifname": null},
+    "master_endpoint": {
+      "addr": "redacted",
+      "port": 29500,
+      "status": "WARN",
+      "detail": "redacted:29500 could not be resolved locally: temporary failure in name resolution"
+    },
+    "warnings": []
+  },
+  "backend_status": [
+    {"backend": "nccl", "status": "FAIL", "detail": "NCCL backend requires CUDA devices"}
+  ],
+  "precision_capability_matrix": [
+    {
+      "host": "host-local",
+      "device": "cpu",
+      "device_name": "CUDA unavailable",
+      "compute_capability": "n/a",
+      "memory_gib": null,
+      "warning": "CUDA is unavailable in this process; live NCCL probing requires GPUs",
+      "fp32": true,
+      "tf32": false,
+      "fp16": false,
+      "bf16": false,
+      "fp8": false,
+      "int8": false
+    }
+  ],
+  "collective_tests": [
+    {"name": "barrier", "status": "NOT_RUN", "detail": "backend initialization failed"},
+    {"name": "all_reduce", "status": "NOT_RUN", "detail": "backend initialization failed"},
+    {"name": "all_gather", "status": "NOT_RUN", "detail": "backend initialization failed"}
+  ],
+  "failure_diagnosis_or_warning": [
+    "manifest world_size=8 differs from runtime WORLD_SIZE=4",
+    "distributed initialization or collective communication failed"
+  ]
+}

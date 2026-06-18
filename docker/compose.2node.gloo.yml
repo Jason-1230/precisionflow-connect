@@ -1,0 +1,66 @@
+services:
+  pfc-node0:
+    image: precisionflow-connect:gpu
+    hostname: pfc-node0
+    working_dir: /workspace
+    volumes:
+      - ../:/workspace
+    environment:
+      GLOO_SOCKET_IFNAME: eth0
+      NCCL_DEBUG: INFO
+    command:
+      - torchrun
+      - --nnodes=2
+      - --nproc_per_node=1
+      - --node_rank=0
+      - --master_addr=pfc-node0
+      - --master_port=29500
+      - -m
+      - precisionflow_lab
+      - connect
+      - --live
+      - --backend
+      - gloo
+      - --manifest
+      - configs/docker_2node_gloo.json
+      - --anonymize-hostnames
+      - --json-output
+      - reports/docker-gloo-connect.json
+      - --markdown-output
+      - reports/docker-gloo-connect.md
+    networks:
+      - pfc-net
+
+  pfc-node1:
+    image: precisionflow-connect:gpu
+    hostname: pfc-node1
+    working_dir: /workspace
+    volumes:
+      - ../:/workspace
+    depends_on:
+      - pfc-node0
+    environment:
+      GLOO_SOCKET_IFNAME: eth0
+      NCCL_DEBUG: INFO
+    command:
+      - torchrun
+      - --nnodes=2
+      - --nproc_per_node=1
+      - --node_rank=1
+      - --master_addr=pfc-node0
+      - --master_port=29500
+      - -m
+      - precisionflow_lab
+      - connect
+      - --live
+      - --backend
+      - gloo
+      - --manifest
+      - configs/docker_2node_gloo.json
+      - --anonymize-hostnames
+    networks:
+      - pfc-net
+
+networks:
+  pfc-net:
+    driver: bridge

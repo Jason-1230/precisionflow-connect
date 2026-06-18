@@ -1,0 +1,19 @@
+{
+  "job_name": "twelve-rank-heterogeneous-demo",
+  "world_size": 12,
+  "ranks": [
+    {"rank": 0, "machine": "node-a", "device": "cuda:0", "precision": "fp32"},
+    {"rank": 1, "machine": "node-a", "device": "cuda:1", "precision": "bf16"},
+    {"rank": 2, "machine": "node-a", "device": "cuda:2", "precision": "fp16"},
+    {"rank": 3, "machine": "node-b", "device": "cuda:0", "precision": "fp32"},
+    {"rank": 4, "machine": "node-b", "device": "cuda:1", "precision": "bf16"},
+    {"rank": 5, "machine": "node-b", "device": "cuda:2", "precision": "fp16"},
+    {"rank": 6, "machine": "node-c", "device": "cuda:0", "precision": "fp32"},
+    {"rank": 7, "machine": "node-c", "device": "cuda:1", "precision": "bf16"},
+    {"rank": 8, "machine": "node-c", "device": "cuda:2", "precision": "fp16"},
+    {"rank": 9, "machine": "node-d", "device": "cuda:0", "precision": "fp32"},
+    {"rank": 10, "machine": "node-d", "device": "cuda:1", "precision": "bf16"},
+    {"rank": 11, "machine": "node-d", "device": "cuda:2", "precision": "fp16"}
+  ]
+}
+
