@@ -40,6 +40,7 @@ def render_markdown_report(report: dict[str, Any]) -> str:
         "# PrecisionFlow Connect System Report",
         "",
         f"- Tool: {report.get('tool', 'PrecisionFlow Connect')}",
+        f"- Report schema: {report.get('report_schema_version', 'unknown')}",
         f"- Mode: {report.get('mode', 'unknown')}",
         f"- Created at UTC: {report.get('created_at_utc', 'unknown')}",
         f"- Overall status: {report.get('overall_status', 'unknown')}",
@@ -95,6 +96,44 @@ def render_markdown_report(report: dict[str, Any]) -> str:
             ]
         )
 
+    validation = report.get("topology_validation", {})
+    validation_rows = [
+        [
+            row.get("rank"),
+            row.get("declared_machine"),
+            row.get("declared_device"),
+            row.get("observed_device"),
+            row.get("device_match"),
+            row.get("declared_precision"),
+            row.get("estimated_precision_supported"),
+        ]
+        for row in validation.get("rows", [])
+    ]
+    if validation:
+        lines.extend(["## Declared-Versus-Observed Validation", ""])
+        lines.append(f"- Status: {validation.get('status')}")
+        for error in validation.get("errors", []):
+            lines.append(f"- ERROR: {error}")
+        for warning in validation.get("warnings", []):
+            lines.append(f"- WARN: {warning}")
+        lines.append("")
+        if validation_rows:
+            lines.extend(
+                _table(
+                    [
+                        "rank",
+                        "declared machine",
+                        "declared device",
+                        "observed device",
+                        "device match",
+                        "declared precision",
+                        "estimated support",
+                    ],
+                    validation_rows,
+                )
+            )
+            lines.append("")
+
     lines.extend(["## Backend Status", ""])
     lines.extend(
         _table(
@@ -134,7 +173,7 @@ def render_markdown_report(report: dict[str, Any]) -> str:
     )
     lines.append("")
 
-    lines.extend(["## Precision Capability Table", ""])
+    lines.extend(["## Precision Readiness Matrix", ""])
     precision_rows = []
     for row in report.get("precision_capability_matrix", []):
         precision_rows.append(

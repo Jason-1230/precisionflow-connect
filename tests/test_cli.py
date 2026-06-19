@@ -65,7 +65,53 @@ class CliTests(unittest.TestCase):
             main(["--version"])
 
         self.assertEqual(raised.exception.code, 0)
-        self.assertIn("precisionflow-connect 0.3.0", stdout.getvalue())
+        self.assertIn("precisionflow-connect 0.4.0", stdout.getvalue())
+
+    def test_configure_prints_manifest(self):
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            code = main(
+                [
+                    "configure",
+                    "--job-name",
+                    "demo",
+                    "--node",
+                    "node-a=cuda:0,cuda:1@bf16",
+                    "--node",
+                    "node-b=cuda:0@fp16",
+                ]
+            )
+
+        self.assertEqual(code, 0)
+        output = stdout.getvalue()
+        self.assertIn("World size: 3", output)
+        self.assertIn("| 2 | node-b | cuda:0 | fp16 |", output)
+
+    def test_launch_json_includes_training_handoff(self):
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            code = main(
+                [
+                    "launch",
+                    str(MANIFEST),
+                    "--node-rank",
+                    "0",
+                    "--master-addr",
+                    "192.0.2.10",
+                    "--training-script",
+                    "examples/minimal_ddp_train.py",
+                    "--json",
+                    "--",
+                    "--epochs",
+                    "1",
+                ]
+            )
+
+        self.assertEqual(code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["node_rank"], 0)
+        self.assertIn("examples/minimal_ddp_train.py", payload["training"]["command"])
+        self.assertIn("--epochs", payload["training"]["command"])
 
 
 if __name__ == "__main__":

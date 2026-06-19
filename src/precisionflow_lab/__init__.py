@@ -4,7 +4,7 @@ from .planner import build_plan, load_manifest
 from .profile import build_capability_profile
 from .runtime import build_preflight_report, run_live_report
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 __all__ = [
     "__version__",

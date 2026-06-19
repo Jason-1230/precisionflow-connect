@@ -82,7 +82,7 @@ def build_plan(manifest: dict) -> PrecisionFlowPlan:
         "check torchrun rank/local_rank/world_size environment consistency",
         "initialize NCCL or Gloo process group across declared ranks",
         "run barrier, all-reduce, and all-gather collective smoke tests",
-        "emit topology, backend, network, environment, and precision capability report",
+        "emit topology, backend, network, environment, and precision readiness report",
     )
 
     return PrecisionFlowPlan(

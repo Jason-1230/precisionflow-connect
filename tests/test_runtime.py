@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from precisionflow_lab.report import render_markdown_report
 from precisionflow_lab.runtime import (
+    _live_topology_validation,
     build_preflight_report,
     precision_capability_from_compute_capability,
     torchrun_context,
@@ -62,7 +63,7 @@ class RuntimeTests(unittest.TestCase):
         self.assertIn("## Cluster Topology", markdown)
         self.assertIn("## Backend Status", markdown)
         self.assertIn("## Network Interface Status", markdown)
-        self.assertIn("## Precision Capability Table", markdown)
+        self.assertIn("## Precision Readiness Matrix", markdown)
         self.assertIn("## Collective Communication Test Result", markdown)
         self.assertIn("fp8", markdown)
 
@@ -79,6 +80,46 @@ class RuntimeTests(unittest.TestCase):
         self.assertIn("node-1", rendered)
         self.assertNotIn("node-a", rendered)
         self.assertNotIn("node-b", rendered)
+
+    def test_live_topology_validation_fails_world_size_mismatch(self):
+        report = {
+            "rank_runtime": {"rank": 0, "world_size": 2},
+            "cluster_topology": {
+                "status": "PASS",
+                "world_size": 8,
+                "rank_mapping": [
+                    {"rank": 0, "machine": "node-a", "device": "cuda:0", "precision": "bf16"},
+                ],
+            },
+            "precision_capability_matrix": [
+                {"device": "cuda:0", "bf16": True},
+            ],
+        }
+
+        validation = _live_topology_validation(report, runtime_device="cuda:0")
+
+        self.assertEqual(validation["status"], "FAIL")
+        self.assertIn("world_size=8", validation["errors"][0])
+
+    def test_live_topology_validation_fails_unsupported_declared_precision(self):
+        report = {
+            "rank_runtime": {"rank": 0, "world_size": 1},
+            "cluster_topology": {
+                "status": "PASS",
+                "world_size": 1,
+                "rank_mapping": [
+                    {"rank": 0, "machine": "node-a", "device": "cuda:0", "precision": "fp8"},
+                ],
+            },
+            "precision_capability_matrix": [
+                {"device": "cuda:0", "fp8": False},
+            ],
+        }
+
+        validation = _live_topology_validation(report, runtime_device="cuda:0")
+
+        self.assertEqual(validation["status"], "FAIL")
+        self.assertIn("declared precision fp8", validation["errors"][0])
 
 
 if __name__ == "__main__":

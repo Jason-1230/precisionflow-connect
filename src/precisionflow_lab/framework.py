@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shlex
 from pathlib import Path
 from typing import Any
 
@@ -16,7 +17,7 @@ def _device_ids(devices: list[str]) -> str | None:
 
 
 def _join_command(parts: list[str]) -> str:
-    return " ".join(str(part) for part in parts if str(part) != "")
+    return shlex.join([str(part) for part in parts if str(part) != ""])
 
 
 def _torchrun_parts(
@@ -150,7 +151,9 @@ def build_framework_plan(
                 "nproc_per_node": len(group.ranks),
                 "declared_devices": devices,
                 "cuda_visible_devices": visible_devices,
+                "torchrun_args": torchrun,
                 "torchrun_command": _join_command(torchrun),
+                "docker_args": docker,
                 "docker_command": _join_command(docker),
             }
         )

@@ -32,6 +32,7 @@ OPTIONAL_DISTRIBUTED_ENV = (
 
 INTEGER_ENV = ("MASTER_PORT", "RANK", "LOCAL_RANK", "WORLD_SIZE", "LOCAL_WORLD_SIZE", "NODE_RANK")
 PRECISION_COLUMNS = ("fp32", "tf32", "fp16", "bf16", "fp8", "int8")
+REPORT_SCHEMA_VERSION = "0.4"
 
 
 def _utc_now() -> str:
@@ -176,6 +177,7 @@ def probe_precision_capabilities(torch_module: Any | None = None, anonymize_host
             "device_name": "PyTorch not installed",
             "compute_capability": "n/a",
             "memory_gib": None,
+            "probe_type": "hardware_estimate",
             "warning": "install PyTorch on the target cluster to probe CUDA devices",
         }
         row.update(precision_capability_from_compute_capability(None))
@@ -189,6 +191,7 @@ def probe_precision_capabilities(torch_module: Any | None = None, anonymize_host
             "device_name": "CUDA unavailable",
             "compute_capability": "n/a",
             "memory_gib": None,
+            "probe_type": "hardware_estimate",
             "warning": "CUDA is unavailable in this process; live NCCL probing requires GPUs",
         }
         row.update(precision_capability_from_compute_capability(None))
@@ -204,6 +207,7 @@ def probe_precision_capabilities(torch_module: Any | None = None, anonymize_host
             "device_name": props.name,
             "compute_capability": f"{major}.{minor}",
             "memory_gib": round(props.total_memory / (1024**3), 2),
+            "probe_type": "hardware_estimate",
             "warning": None,
         }
         row.update(precision_capability_from_compute_capability(major, minor))
@@ -293,7 +297,7 @@ def build_preflight_report(
     required_present = [row for row in required_rows if row["present"]]
     parse_failures = [row for row in required_rows if row["present"] and row["status"] == "FAIL"]
     all_required_present = all(row["present"] for row in required_rows)
-    if topology.get("status") != "PASS" or parse_failures:
+    if topology.get("status") not in ("PASS", "NOT_PROVIDED") or parse_failures:
         overall_status = "FAIL"
     elif all_required_present and not warnings and network.get("master_endpoint", {}).get("status") == "PASS":
         overall_status = "PASS"
@@ -310,6 +314,7 @@ def build_preflight_report(
 
     report = {
         "tool": "PrecisionFlow Connect",
+        "report_schema_version": REPORT_SCHEMA_VERSION,
         "mode": "preflight",
         "created_at_utc": _utc_now(),
         "overall_status": overall_status,
@@ -333,6 +338,100 @@ def build_preflight_report(
         "failure_diagnosis_or_warning": diagnosis,
     }
     return report
+
+
+def _required_environment_errors(report: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    for row in report.get("environment", []):
+        if not row.get("required"):
+            continue
+        if not row.get("present"):
+            errors.append(f"missing required torchrun environment variable {row.get('name')}")
+        elif row.get("status") == "FAIL":
+            detail = row.get("detail") or "invalid value"
+            errors.append(f"{row.get('name')}: {detail}")
+    return errors
+
+
+def _declared_rank(topology: dict[str, Any], rank: int | None) -> dict[str, Any] | None:
+    if rank is None:
+        return None
+    for row in topology.get("rank_mapping", []):
+        if row.get("rank") == rank:
+            return row
+    return None
+
+
+def _precision_supported(
+    precision_rows: list[dict[str, Any]],
+    *,
+    device: str,
+    precision: str,
+) -> bool:
+    for row in precision_rows:
+        if row.get("device") == device:
+            return bool(row.get(precision))
+    return False
+
+
+def _live_topology_validation(
+    report: dict[str, Any],
+    *,
+    runtime_device: str | None,
+) -> dict[str, Any]:
+    topology = report.get("cluster_topology", {})
+    context = report.get("rank_runtime", {})
+    errors: list[str] = []
+    warnings: list[str] = []
+    rows: list[dict[str, Any]] = []
+
+    if topology.get("status") == "NOT_PROVIDED":
+        warnings.append("no manifest supplied; live mode validated runtime communication only")
+        return {"status": "WARN", "errors": errors, "warnings": warnings, "rows": rows}
+    if topology.get("status") != "PASS":
+        errors.append(f"manifest status is {topology.get('status')}: {topology.get('detail')}")
+        return {"status": "FAIL", "errors": errors, "warnings": warnings, "rows": rows}
+
+    declared_world_size = topology.get("world_size")
+    runtime_world_size = context.get("world_size")
+    if runtime_world_size != declared_world_size:
+        errors.append(f"manifest world_size={declared_world_size} differs from runtime WORLD_SIZE={runtime_world_size}")
+
+    rank = context.get("rank")
+    declared = _declared_rank(topology, rank)
+    if declared is None:
+        errors.append(f"runtime RANK={rank} is not present in manifest rank mapping")
+    else:
+        declared_device = declared.get("device")
+        declared_precision = declared.get("precision")
+        device_match = runtime_device == declared_device
+        precision_match = _precision_supported(
+            report.get("precision_capability_matrix", []),
+            device=runtime_device or "",
+            precision=declared_precision,
+        )
+        if not device_match:
+            errors.append(
+                f"rank {rank} declared device {declared_device} but runtime selected {runtime_device}"
+            )
+        if not precision_match:
+            errors.append(
+                f"rank {rank} declared precision {declared_precision} is not estimated as supported on {runtime_device}"
+            )
+        rows.append(
+            {
+                "rank": rank,
+                "declared_machine": declared.get("machine"),
+                "declared_device": declared_device,
+                "observed_device": runtime_device,
+                "device_match": device_match,
+                "declared_precision": declared_precision,
+                "estimated_precision_supported": precision_match,
+            }
+        )
+
+    status = "FAIL" if errors else ("WARN" if warnings else "PASS")
+    return {"status": status, "errors": errors, "warnings": warnings, "rows": rows}
 
 
 def _select_backend(torch: Any, requested_backend: str) -> str:
@@ -392,6 +491,15 @@ def run_live_report(
         selected_backend = _select_backend(torch, backend)
         if selected_backend == "nccl" and not torch.cuda.is_available():
             raise RuntimeError("NCCL backend requires CUDA devices")
+        local_rank = _parse_int((environ or os.environ).get("LOCAL_RANK"))
+        if selected_backend == "nccl":
+            if local_rank is None:
+                raise RuntimeError("LOCAL_RANK is required for NCCL device assignment")
+            if local_rank < 0 or local_rank >= torch.cuda.device_count():
+                raise RuntimeError(
+                    f"LOCAL_RANK={local_rank} is outside the visible CUDA device range 0..{torch.cuda.device_count() - 1}"
+                )
+            torch.cuda.set_device(local_rank)
 
         torch.distributed.init_process_group(
             backend=selected_backend,
@@ -401,10 +509,10 @@ def run_live_report(
         dist = torch.distributed
         rank = dist.get_rank()
         world_size = dist.get_world_size()
-        local_rank = _parse_int((environ or os.environ).get("LOCAL_RANK")) or 0
+        if local_rank is None:
+            local_rank = _parse_int((environ or os.environ).get("LOCAL_RANK")) or 0
 
         if selected_backend == "nccl":
-            torch.cuda.set_device(local_rank)
             device = torch.device("cuda", local_rank)
         else:
             device = torch.device("cpu")
@@ -431,6 +539,10 @@ def run_live_report(
             "local_rank": local_rank,
             "device": str(device),
         }
+        topology_validation = _live_topology_validation(local_report, runtime_device=str(device))
+        blocking_errors = _required_environment_errors(local_report) + topology_validation["errors"]
+        collective_passed = all_reduce_passed and all_gather_passed
+        local_report["overall_status"] = "PASS" if collective_passed and not blocking_errors else "FAIL"
         local_report["backend_status"] = [
             {
                 "backend": selected_backend,
@@ -451,6 +563,7 @@ def run_live_report(
                 "detail": f"gathered ranks {gathered_ranks}",
             },
         ]
+        local_report["topology_validation"] = topology_validation
         local_report["rank_probe"] = {
             "rank": rank,
             "local_rank": local_rank,
@@ -459,10 +572,15 @@ def run_live_report(
             "backend": selected_backend,
             "hostname": f"host-rank-{rank}" if anonymize_hosts else socket.gethostname(),
         }
-        local_report["failure_diagnosis_or_warning"] = [
-            "multi-node communication passed",
-            "collective communication smoke test passed",
-        ]
+        diagnosis: list[str] = []
+        if collective_passed:
+            diagnosis.append("multi-node communication passed")
+            diagnosis.append("collective communication smoke test passed")
+        else:
+            diagnosis.append("collective communication smoke test failed")
+        diagnosis.extend(blocking_errors)
+        diagnosis.extend(topology_validation["warnings"])
+        local_report["failure_diagnosis_or_warning"] = diagnosis
 
         gathered_reports: list[dict[str, Any] | None] = [None for _ in range(world_size)]
         dist.all_gather_object(gathered_reports, local_report)
@@ -475,6 +593,21 @@ def run_live_report(
         aggregate = copy.deepcopy(local_report)
         aggregate["rank_reports"] = rank_reports
         aggregate["rank_mapping_observed"] = [item["rank_probe"] for item in rank_reports]
+        aggregate_errors: list[str] = []
+        aggregate_rows: list[dict[str, Any]] = []
+        aggregate_warnings: list[str] = []
+        for item in rank_reports:
+            validation = item.get("topology_validation", {})
+            aggregate_errors.extend(validation.get("errors", []))
+            aggregate_warnings.extend(validation.get("warnings", []))
+            aggregate_rows.extend(validation.get("rows", []))
+        aggregate["topology_validation"] = {
+            "status": "FAIL" if aggregate_errors else ("WARN" if aggregate_warnings else "PASS"),
+            "errors": list(dict.fromkeys(aggregate_errors)),
+            "warnings": list(dict.fromkeys(aggregate_warnings)),
+            "rows": aggregate_rows,
+        }
+        aggregate["overall_status"] = "PASS" if not aggregate_errors and collective_passed else "FAIL"
         aggregate["backend_status"] = [
             {
                 "backend": selected_backend,
@@ -487,6 +620,8 @@ def run_live_report(
             "collective communication smoke test passed",
             "rank-to-machine/device mapping captured on rank 0",
         ]
+        aggregate["failure_diagnosis_or_warning"].extend(dict.fromkeys(aggregate_errors))
+        aggregate["failure_diagnosis_or_warning"].extend(dict.fromkeys(aggregate_warnings))
         return aggregate
     except Exception as exc:
         return _mark_live_failure(report, selected_backend, exc)

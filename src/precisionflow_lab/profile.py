@@ -9,18 +9,33 @@ def build_capability_profile() -> dict[str, Any]:
         "tagline": "Multi-node readiness and heterogeneous precision probing for distributed AI training environments.",
         "purpose": (
             "Check Docker, torchrun, network, backend, rank mapping, collective communication, "
-            "and GPU precision capability before launching a distributed training workload."
+            "and heterogeneous precision readiness before launching a distributed training workload."
         ),
         "deployment_targets": [
             {
+                "target": "manifest configuration",
+                "entrypoint": "precisionflow-connect configure --node node-a=cuda:0,cuda:1@bf16 --node node-b=cuda:0,cuda:1@fp16",
+                "evidence": "validated world size, rank-to-machine mapping, rank-to-device mapping, and declared precision streams",
+            },
+            {
+                "target": "environment inventory",
+                "entrypoint": "precisionflow-connect env",
+                "evidence": "Python, PyTorch, backend, CUDA, torchrun environment, network, and precision readiness rows",
+            },
+            {
                 "target": "local preflight",
                 "entrypoint": "precisionflow-connect connect --manifest configs/multinode_2x4.json",
-                "evidence": "manifest validation, local environment rows, network interface list, precision capability table",
+                "evidence": "manifest validation, local environment rows, network interface list, and precision readiness matrix",
             },
             {
                 "target": "bare-metal torchrun",
                 "entrypoint": "torchrun ... -m precisionflow_lab connect --live",
                 "evidence": "NCCL/Gloo initialization plus barrier, all-reduce, and all-gather smoke tests",
+            },
+            {
+                "target": "readiness-gated training handoff",
+                "entrypoint": "precisionflow-connect launch configs/multinode_2x4.json --node-rank 0 --master-addr 192.0.2.10 --training-script examples/minimal_ddp_train.py",
+                "evidence": "readiness command, training torchrun command, environment bindings, and post-run report closure",
             },
             {
                 "target": "Docker runtime",
@@ -39,6 +54,10 @@ def build_capability_profile() -> dict[str, Any]:
                 "responsibility": "declare world size, rank-to-machine mapping, rank-to-device mapping, and desired precision streams",
             },
             {
+                "layer": "environment inventory",
+                "responsibility": "record Python, PyTorch, backend, CUDA, torchrun, network, and heterogeneous precision readiness before launch",
+            },
+            {
                 "layer": "launcher planner",
                 "responsibility": "derive node_rank, nproc_per_node, CUDA_VISIBLE_DEVICES, torchrun commands, and Docker commands",
             },
@@ -53,6 +72,10 @@ def build_capability_profile() -> dict[str, Any]:
             {
                 "layer": "report and diagnosis",
                 "responsibility": "emit JSON/Markdown reports and convert failures into actionable findings",
+            },
+            {
+                "layer": "training handoff",
+                "responsibility": "gate a real training script behind the same torchrun topology and archive readiness evidence",
             },
         ],
         "readiness_checks": [
