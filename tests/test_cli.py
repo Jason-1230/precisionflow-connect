@@ -65,7 +65,7 @@ class CliTests(unittest.TestCase):
             main(["--version"])
 
         self.assertEqual(raised.exception.code, 0)
-        self.assertIn("precisionflow-connect 0.2.0", stdout.getvalue())
+        self.assertIn("precisionflow-connect 0.3.0", stdout.getvalue())
 
 
 if __name__ == "__main__":

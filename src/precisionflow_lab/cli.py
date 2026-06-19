@@ -8,6 +8,7 @@ from . import __version__
 from .diagnose import diagnose_report, findings_as_dicts, load_report, render_diagnosis_markdown
 from .framework import build_framework_plan, render_framework_markdown
 from .planner import ManifestError, build_plan, load_manifest
+from .profile import build_capability_profile, render_profile_markdown
 from .report import render_markdown_report, write_json_report, write_markdown_report
 from .runtime import build_preflight_report, run_live_report
 
@@ -103,6 +104,12 @@ def main(argv: list[str] | None = None) -> int:
     framework_parser.add_argument("--cpu-only", action="store_true", help="omit Docker --gpus all from generated commands")
     framework_parser.add_argument("--json", action="store_true", help="print machine-readable JSON")
 
+    profile_parser = subparsers.add_parser(
+        "profile",
+        help="print the deployment, readiness-check, and framework-handoff capability profile",
+    )
+    profile_parser.add_argument("--json", action="store_true", help="print machine-readable JSON")
+
     args = parser.parse_args(argv)
 
     try:
@@ -167,6 +174,13 @@ def main(argv: list[str] | None = None) -> int:
                 print(json.dumps(plan, indent=2))
             else:
                 print(render_framework_markdown(plan))
+            return 0
+        if args.command == "profile":
+            profile = build_capability_profile()
+            if args.json:
+                print(json.dumps(profile, indent=2))
+            else:
+                print(render_profile_markdown(profile))
             return 0
     except ManifestError as exc:
         parser.exit(status=2, message=f"precisionflow-connect: {exc}\n")

@@ -1,13 +1,26 @@
 # PrecisionFlow Connect
 
-PrecisionFlow Connect checks whether a multi-node PyTorch training environment is ready to run. It covers the runtime pieces that usually need to be correct before launching a real distributed job: Docker image setup, `torchrun` launch arguments, rank mapping, GPU visibility, backend initialization, network interface binding, collective communication, and per-device precision capability.
+PrecisionFlow Connect checks whether a multi-node PyTorch training environment is ready to run. It validates Docker runtime setup, `torchrun` launch arguments, rank and device mapping, network interface binding, NCCL/Gloo backend initialization, collective communication, and per-device precision capability.
 
-## Install
+```text
+cluster manifest
+  -> launch planner              Docker + torchrun commands per node
+  -> runtime probe               env, network, PyTorch distributed, CUDA devices
+  -> collective smoke tests      barrier, all-reduce, all-gather
+  -> precision matrix            fp32, tf32, fp16, bf16, fp8, int8 per visible GPU
+  -> system report               JSON/Markdown report plus diagnosis findings
+```
+
+## Quick Start
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -e .
+python -m precisionflow_lab connect --manifest configs/multinode_2x4.json --anonymize-hostnames
+python -m precisionflow_lab framework configs/multinode_2x4.json --network-interface ib0
+python -m precisionflow_lab profile
+python -m unittest discover -s tests
 ```
 
 On Windows PowerShell:
@@ -16,55 +29,56 @@ On Windows PowerShell:
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e .
+python -m precisionflow_lab connect --manifest .\configs\multinode_2x4.json --anonymize-hostnames
+python -m precisionflow_lab framework .\configs\multinode_2x4.json --network-interface ib0
+python -m precisionflow_lab profile
+python -m unittest discover -s tests
 ```
 
-For live GPU checks, install a PyTorch build that matches the CUDA/NCCL runtime on the cluster:
+For live GPU checks, install a PyTorch build that matches the CUDA/NCCL runtime on the target cluster:
 
 ```bash
 python -m pip install -e ".[torch]"
 ```
 
-## Quick Start
+## Deployment Modes
 
-Run a local preflight check with the example manifest:
+| mode | command | output |
+| --- | --- | --- |
+| local preflight | `precisionflow-connect connect --manifest configs/multinode_2x4.json` | manifest, local env, network, and precision capability report |
+| bare-metal multi-node | `torchrun ... -m precisionflow_lab connect --live` | NCCL/Gloo initialization and collective smoke test evidence |
+| Docker runtime | `precisionflow-connect framework configs/multinode_2x4.json --image precisionflow-connect:gpu` | per-node Docker commands with host networking and GPU visibility |
+| scheduler handoff | run the generated command inside Slurm, Kubernetes, or a cloud job step | the same JSON/Markdown report schema across launch environments |
 
-```bash
-python -m precisionflow_lab connect --manifest configs/multinode_2x4.json --anonymize-hostnames
-```
+## Capability Profile
 
-Generate a Docker and `torchrun` launch plan:
-
-```bash
-python -m precisionflow_lab framework configs/multinode_2x4.json \
-  --master-addr 192.0.2.10 \
-  --master-port 29500 \
-  --image precisionflow-connect:gpu \
-  --network-interface ib0
-```
-
-Diagnose a saved failure report:
+The `profile` command prints the project-level deployment, readiness, and framework-handoff view:
 
 ```bash
-python -m precisionflow_lab doctor examples/failure_report.json
+precisionflow-connect profile
+precisionflow-connect profile --json
 ```
 
-Run tests:
+The profile includes:
 
-```bash
-python -m unittest discover -s tests
-```
+- deployment targets for local preflight, Docker runtime, bare-metal `torchrun`, and scheduler handoff;
+- architecture layers from manifest parsing to report generation;
+- readiness checks for launcher, rank mapping, network, backend, collectives, and precision;
+- handoff notes for PyTorch `torchrun`, Hugging Face Accelerate, DeepSpeed, and scheduler-based jobs;
+- a failure lifecycle: detect, classify, recommend, rerun, and archive.
 
-## What The Check Covers
+## Readiness Checks
 
-- `MASTER_ADDR`, `MASTER_PORT`, `RANK`, `LOCAL_RANK`, `WORLD_SIZE`, and `LOCAL_WORLD_SIZE`.
-- Rank-to-machine and rank-to-device mapping from a cluster manifest.
-- NCCL or Gloo process-group initialization.
-- Barrier, all-reduce, and all-gather collective smoke tests.
-- Network interface visibility and optional `NCCL_SOCKET_IFNAME` / `GLOO_SOCKET_IFNAME` binding.
-- GPU capability probing for `fp32`, `tf32`, `fp16`, `bf16`, `fp8`, and `int8`.
-- JSON and Markdown reports for later review.
+| area | checks | typical failure signal | next action |
+| --- | --- | --- | --- |
+| launcher | `MASTER_ADDR`, `MASTER_PORT`, `RANK`, `LOCAL_RANK`, `WORLD_SIZE` | missing or invalid `torchrun` environment | regenerate launch commands and align `nnodes * nproc_per_node` with manifest `world_size` |
+| rank mapping | contiguous ranks, machine groups, device assignment | manifest/runtime world size mismatch | fix the manifest or launch arguments before training |
+| network | master endpoint, host interfaces, socket interface binding | unresolved master endpoint or unpinned multi-NIC host | bind `NCCL_SOCKET_IFNAME` and `GLOO_SOCKET_IFNAME` to the training network |
+| backend | `torch.distributed`, NCCL, Gloo | backend initialization failure | check PyTorch build, CUDA visibility, driver/runtime versions, and backend consistency |
+| collectives | barrier, all-reduce, all-gather | ranks hang or return inconsistent tensors | inspect rank consistency, tensor device placement, backend health, and network binding |
+| precision | `fp32`, `tf32`, `fp16`, `bf16`, `fp8`, `int8` | requested precision unavailable on part of the cluster | gate precision paths by device capability and record heterogeneous precision rows |
 
-## Docker
+## Docker Runtime
 
 Build a CPU image for local checks:
 
@@ -86,7 +100,15 @@ Run the local two-container Gloo example:
 docker compose -f docker/compose.2node.gloo.yml up --abort-on-container-exit
 ```
 
-For GPU clusters, adapt `docker/compose.gpu-template.yml` and the manifest in `configs/`.
+Generate a per-node Docker and `torchrun` plan:
+
+```bash
+precisionflow-connect framework configs/multinode_2x4.json \
+  --master-addr 192.0.2.10 \
+  --master-port 29500 \
+  --image precisionflow-connect:gpu \
+  --network-interface ib0
+```
 
 ## Live Multi-Node Run
 
@@ -115,6 +137,15 @@ torchrun --nnodes=2 --nproc_per_node=4 --node_rank=1 \
 ```
 
 Only rank 0 writes the final report. When a host has multiple NICs, set `NCCL_SOCKET_IFNAME` and `GLOO_SOCKET_IFNAME` to the intended training interface.
+
+## Framework Handoff
+
+| framework or launcher | how to use the report |
+| --- | --- |
+| PyTorch `torchrun` | run the probe with the same `nnodes`, `nproc_per_node`, master address, and backend before training |
+| Hugging Face Accelerate | confirm mixed-precision support and multi-node communication before `accelerate launch` |
+| DeepSpeed | archive the environment report before ZeRO, pipeline, or mixed-precision runs |
+| Slurm, Kubernetes, cloud launchers | run the generated command inside the scheduled job and store the report with experiment artifacts |
 
 ## Example Report
 
@@ -159,7 +190,7 @@ Only rank 0 writes the final report. When a host has multiple NICs, set `NCCL_SO
 ## Diagnosis Example
 
 ```bash
-python -m precisionflow_lab doctor examples/failure_report.json
+precisionflow-connect doctor examples/failure_report.json
 ```
 
 Example output:
@@ -179,6 +210,6 @@ configs/                         cluster manifests
 docker/                          Dockerfile and Docker Compose templates
 examples/                        sample failure report
 scripts/                         local helper scripts
-src/precisionflow_lab/            CLI, runtime checks, planner, diagnosis, report rendering
+src/precisionflow_lab/            CLI, runtime checks, planner, diagnosis, profile, report rendering
 tests/                            unit tests
 ```
