@@ -12,16 +12,9 @@
 
 PrecisionFlow Connect turns heterogeneous multi-node GPU bring-up into a reproducible pre-training readiness workflow. It checks the infrastructure path that a real distributed AI training job depends on: cluster manifests, rank mapping, device visibility, Docker launch commands, master endpoint, network interfaces, PyTorch distributed backends, collective communication, and a precision readiness matrix for heterogeneous devices.
 
-```mermaid
-flowchart LR
-    A["cluster manifest"] --> B["environment inventory"]
-    B --> C["Docker / torchrun plan"]
-    C --> D["NCCL or Gloo readiness gate"]
-    D --> E["collective smoke tests"]
-    E --> F["precision readiness matrix"]
-    F --> G["JSON + Markdown system report"]
-    G --> H["training handoff"]
-```
+<p align="center">
+  <img src="assets/precisionflow-readiness-pipeline.svg" alt="PrecisionFlow Connect readiness pipeline" width="100%">
+</p>
 
 ## Install
 

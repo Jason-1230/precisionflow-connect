@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1480 520" role="img" aria-labelledby="title desc">
+  <title id="title">PrecisionFlow Connect readiness pipeline</title>
+  <desc id="desc">A multi-stage distributed training readiness pipeline from cluster manifest to training handoff.</desc>
+  <defs>
+    <linearGradient id="header" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#0f766e"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="soft" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#ecfeff"/>
+      <stop offset="100%" stop-color="#eff6ff"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-20%" width="120%" height="150%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#0f172a" flood-opacity="0.10"/>
+    </filter>
+    <style>
+      .bg { fill: #ffffff; }
+      .frame { fill: #f8fafc; stroke: #dbe4f0; stroke-width: 1.4; }
+      .title { font: 700 34px Inter, Segoe UI, Arial, sans-serif; fill: #0f172a; letter-spacing: 0; }
+      .header-title { font: 700 34px Inter, Segoe UI, Arial, sans-serif; fill: #ffffff; letter-spacing: 0; }
+      .subtitle { font: 500 17px Inter, Segoe UI, Arial, sans-serif; fill: #475569; letter-spacing: 0; }
+      .label { font: 700 16px Inter, Segoe UI, Arial, sans-serif; fill: #0f172a; letter-spacing: 0; }
+      .small { font: 500 12px Inter, Segoe UI, Arial, sans-serif; fill: #475569; letter-spacing: 0; }
+      .micro { font: 600 11px Inter, Segoe UI, Arial, sans-serif; fill: #64748b; letter-spacing: 0; text-transform: uppercase; }
+      .num { font: 800 15px Inter, Segoe UI, Arial, sans-serif; fill: #ffffff; letter-spacing: 0; }
+      .stage { fill: #ffffff; stroke: #b7c7dc; stroke-width: 1.4; }
+      .stage-hot { fill: #fefce8; stroke: #eab308; stroke-width: 1.4; }
+      .stage-blue { fill: #eff6ff; stroke: #60a5fa; stroke-width: 1.4; }
+      .stage-green { fill: #ecfdf5; stroke: #34d399; stroke-width: 1.4; }
+      .stage-teal { fill: #ecfeff; stroke: #2dd4bf; stroke-width: 1.4; }
+      .chip { fill: #f1f5f9; stroke: #cbd5e1; stroke-width: 1; }
+      .arrow { stroke: #64748b; stroke-width: 2.2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .loop { stroke: #0f766e; stroke-width: 2; fill: none; stroke-linecap: round; stroke-dasharray: 7 7; }
+      .icon { stroke: #0f766e; stroke-width: 2.6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .icon-blue { stroke: #1d4ed8; stroke-width: 2.6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .icon-gold { stroke: #b45309; stroke-width: 2.6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+    </marker>
+    <marker id="loophead" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0f766e"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="1480" height="520"/>
+  <rect x="22" y="22" width="1436" height="476" rx="20" class="frame"/>
+
+  <g transform="translate(54 54)">
+    <rect x="0" y="0" width="360" height="62" rx="16" fill="url(#header)" filter="url(#shadow)"/>
+    <text x="24" y="38" class="header-title">PrecisionFlow Connect</text>
+    <text x="430" y="26" class="subtitle">Reproducible pre-training readiness workflow for heterogeneous GPU clusters</text>
+    <text x="430" y="52" class="small">Docker + torchrun planning, NCCL/Gloo gate, collective smoke tests, precision readiness matrix, and training handoff</text>
+  </g>
+
+  <g transform="translate(54 140)">
+    <rect x="0" y="0" width="1372" height="252" rx="18" fill="url(#soft)" stroke="#cbd5e1" stroke-width="1.2"/>
+
+    <g transform="translate(30 34)">
+      <rect x="0" y="0" width="136" height="154" rx="14" class="stage-blue" filter="url(#shadow)"/>
+      <circle cx="26" cy="-10" r="15" fill="#1d4ed8"/><text x="21" y="-5" class="num">1</text>
+      <path class="icon-blue" d="M37 27h34l18 18v54H37z M71 27v20h18 M49 65h28 M49 82h44"/>
+      <text x="18" y="116" class="label">Manifest</text>
+      <text x="18" y="137" class="small">Cluster topology</text>
+    </g>
+
+    <path class="arrow" marker-end="url(#arrowhead)" d="M180 111 H230"/>
+
+    <g transform="translate(238 34)">
+      <rect x="0" y="0" width="136" height="154" rx="14" class="stage" filter="url(#shadow)"/>
+      <circle cx="26" cy="-10" r="15" fill="#0f766e"/><text x="21" y="-5" class="num">2</text>
+      <path class="icon" d="M38 42h58 M38 72h38 M38 102h68 M92 34l18 18-18 18"/>
+      <text x="18" y="116" class="label">Env Inventory</text>
+      <text x="18" y="137" class="small">Python, torch, NICs</text>
+    </g>
+
+    <path class="arrow" marker-end="url(#arrowhead)" d="M388 111 H438"/>
+
+    <g transform="translate(446 34)">
+      <rect x="0" y="0" width="136" height="154" rx="14" class="stage-teal" filter="url(#shadow)"/>
+      <circle cx="26" cy="-10" r="15" fill="#0f766e"/><text x="21" y="-5" class="num">3</text>
+      <path class="icon" d="M36 74h70 M50 53h42l14 21-14 21H50L36 74z M59 47v54 M80 47v54"/>
+      <text x="18" y="116" class="label">Docker Runtime</text>
+      <text x="18" y="137" class="small">Reproducible image</text>
+    </g>
+
+    <path class="arrow" marker-end="url(#arrowhead)" d="M596 111 H646"/>
+
+    <g transform="translate(654 34)">
+      <rect x="0" y="0" width="136" height="154" rx="14" class="stage-blue" filter="url(#shadow)"/>
+      <circle cx="26" cy="-10" r="15" fill="#1d4ed8"/><text x="21" y="-5" class="num">4</text>
+      <path class="icon-blue" d="M38 42h60 M38 72h72 M38 102h50 M98 41l18 18-18 18"/>
+      <text x="18" y="116" class="label">torchrun Plan</text>
+      <text x="18" y="137" class="small">rank, local_rank</text>
+    </g>
+
+    <path class="arrow" marker-end="url(#arrowhead)" d="M804 111 H854"/>
+
+    <g transform="translate(862 34)">
+      <rect x="0" y="0" width="136" height="154" rx="14" class="stage-green" filter="url(#shadow)"/>
+      <circle cx="26" cy="-10" r="15" fill="#0f766e"/><text x="21" y="-5" class="num">5</text>
+      <path class="icon" d="M73 34l38 18v30c0 27-18 43-38 52-20-9-38-25-38-52V52z M55 78l14 14 30-34"/>
+      <text x="18" y="116" class="label">NCCL/Gloo Gate</text>
+      <text x="18" y="137" class="small">Process group init</text>
+    </g>
+
+    <path class="arrow" marker-end="url(#arrowhead)" d="M1012 111 H1062"/>
+
+    <g transform="translate(1070 34)">
+      <rect x="0" y="0" width="136" height="154" rx="14" class="stage" filter="url(#shadow)"/>
+      <circle cx="26" cy="-10" r="15" fill="#0f766e"/><text x="21" y="-5" class="num">6</text>
+      <path class="icon" d="M73 40v32 M73 72l-30 30 M73 72l30 30 M43 102h60 M43 102l-18 22 M103 102l18 22"/>
+      <text x="18" y="116" class="label">Collectives</text>
+      <text x="18" y="137" class="small">barrier, all-reduce</text>
+    </g>
+
+    <g transform="translate(1248 38)">
+      <rect x="0" y="0" width="94" height="146" rx="14" class="stage-hot"/>
+      <path class="icon-gold" d="M29 34h36v30H29z M29 74h36v30H29z M41 34v70 M53 34v70"/>
+      <text x="18" y="118" class="label">Matrix</text>
+      <text x="18" y="137" class="small">precision</text>
+    </g>
+  </g>
+
+  <g transform="translate(54 410)">
+    <rect x="0" y="0" width="320" height="52" rx="14" class="chip"/>
+    <text x="18" y="23" class="micro">precision readiness</text>
+    <text x="18" y="40" class="small">declared precision + runtime device + hardware support</text>
+
+    <rect x="350" y="0" width="320" height="52" rx="14" class="chip"/>
+    <text x="388" y="23" class="micro">system report</text>
+    <text x="388" y="40" class="small">rank mapping, backend status, collectives, warnings</text>
+
+    <rect x="700" y="0" width="320" height="52" rx="14" class="chip"/>
+    <text x="718" y="23" class="micro">doctor diagnosis</text>
+    <text x="718" y="40" class="small">world-size mismatch, backend failure, device visibility</text>
+
+    <rect x="1050" y="0" width="320" height="52" rx="14" class="chip"/>
+    <text x="1068" y="23" class="micro">training handoff</text>
+    <text x="1068" y="40" class="small">run training only after readiness gate passes</text>
+  </g>
+</svg>
