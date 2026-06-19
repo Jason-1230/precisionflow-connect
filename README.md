@@ -38,23 +38,20 @@ python -m venv .venv
 python -m pip install -e .
 ```
 
-## From Raw Torchrun To A Guarded Launch
+## Readiness-Gated Training Launch
 
-Instead of launching a distributed training script directly, place a reproducible readiness gate in front of it:
+PrecisionFlow Connect uses the cluster manifest, node rank, master endpoint, network interface, and training entry point to build one consistent distributed launch plan:
 
-```diff
-- torchrun --nnodes=2 --nproc_per_node=4 --node_rank=0 \
--   --master_addr=192.0.2.10 --master_port=29500 train.py
-+
-+ precisionflow-connect launch configs/multinode_2x4.json \
-+   --node-rank 0 \
-+   --master-addr 192.0.2.10 \
-+   --master-port 29500 \
-+   --network-interface ib0 \
-+   --training-script examples/minimal_ddp_train.py -- --epochs 2
+```bash
+precisionflow-connect launch configs/multinode_2x4.json \
+  --node-rank 0 \
+  --master-addr 192.0.2.10 \
+  --master-port 29500 \
+  --network-interface ib0 \
+  --training-script examples/minimal_ddp_train.py -- --epochs 2
 ```
 
-The launch plan prints the readiness command, the training command, the environment bindings, and the post-run diagnosis command. Add `--execute` when you want the current node to run the readiness gate and then run the training script after the gate passes.
+The launch plan contains the readiness command, the training command, the environment bindings, and the post-run diagnosis command. Add `--execute` to initialize the distributed readiness gate on the current node and start the training script after the gate passes.
 
 Precision declarations in a manifest are part of the readiness contract. PrecisionFlow Connect reconciles each rank's declared precision against the selected runtime device and the hardware-derived support table, then records the result in the report before the training handoff.
 
